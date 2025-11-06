@@ -717,6 +717,10 @@ class Game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.state = "menu"
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if hasattr(self, 'close_button') and self.close_button.rect.collidepoint(pygame.mouse.get_pos()):
+                        self.state = 'menu'
+                        self.ui_click.play()
 
             self.draw_background()
             
@@ -740,6 +744,11 @@ class Game:
                 role_text = role_font.render(credit["role"], True, SECONDARY)
                 role_rect = role_text.get_rect(center=(SCREEN_WIDTH//2, y_pos + 30))
                 self.screen.blit(role_text, role_rect)
+            
+            # Draw close button
+            if hasattr(self, 'close_button'):
+                self.close_button.update(pygame.mouse.get_pos())
+                self.close_button.draw(self.screen)
             
             pygame.display.flip()
             self.clock.tick(FPS)
