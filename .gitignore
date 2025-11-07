@@ -4,9 +4,9 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
+# build/ - COMMENTED: We want build/ in GitHub for web/windows builds!
 develop-eggs/
-dist/
+# dist/ - COMMENTED: We want dist/ in GitHub for executables!
 downloads/
 eggs/
 .eggs/
@@ -43,5 +43,12 @@ bin/
 .DS_Store
 Thumbs.db
 
-# Build cache
-build/web-cache/
+# Build cache - only ignore cache, not the actual builds
+# build/web-cache/ - ALLOW web-cache too for consistency
+
+# Large binaries (executables and packages > 10MB should use GitHub Releases)
+build/windows/**/*.pkg
+build/windows/**/*.pyz
+build/windows/**/*.zip
+dist/windows/ModernFlappyBird
+dist/**/*.exe
