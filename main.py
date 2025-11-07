@@ -1,3 +1,4 @@
+
 import pygame
 import numpy as np
 import sys
@@ -12,9 +13,21 @@ from datetime import datetime
 pygame.init()
 mixer.init()
 
-# Constants
-SCREEN_WIDTH = 1024
-SCREEN_HEIGHT = 768
+# Constants - Responsive for mobile/web
+# Auto-detect platform and set appropriate screen size
+import platform
+PLATFORM = platform.system()
+IS_MOBILE = os.environ.get('ANDROID_ARGUMENT', '') or os.environ.get('PYGAME_BLEND_ALPHA_SDL2', '')
+
+# Screen size - responsive for different devices
+if IS_MOBILE:
+    # Mobile: use device screen size
+    SCREEN_WIDTH = 0  # Will be set from display info
+    SCREEN_HEIGHT = 0
+else:
+    # Desktop/Web: use HD resolution
+    SCREEN_WIDTH = 1280
+    SCREEN_HEIGHT = 720
 FPS = 60
 
 # Colors
@@ -219,12 +232,32 @@ class Settings:
 
 class Game:
     def __init__(self):
-        # Initialize display with vsync if enabled in settings
+        global SCREEN_WIDTH, SCREEN_HEIGHT
+        
+        # Initialize display - get actual screen size for mobile
         self.settings = Settings()
         self.settings.load()
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 
-                                            pygame.HWSURFACE | pygame.DOUBLEBUF | 
-                                            (pygame.SCALED if self.settings.vsync else 0))
+        
+        # Auto-detect screen size for mobile/web
+        if IS_MOBILE:
+            info = pygame.display.Info()
+            SCREEN_WIDTH = info.current_w
+            SCREEN_HEIGHT = info.current_h
+        
+        # Choose appropriate display flags for mobile vs desktop
+        display_flags = pygame.HWSURFACE | pygame.DOUBLEBUF
+        try:
+            if IS_MOBILE:
+                # On mobile prefer fullscreen + scaled rendering for different device sizes
+                display_flags |= pygame.FULLSCREEN | pygame.SCALED
+            else:
+                if self.settings.vsync:
+                    display_flags |= pygame.SCALED
+        except Exception:
+            # Fallback if pygame doesn't support SCALED or FULLSCREEN on some builds
+            pass
+
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), display_flags)
         pygame.display.set_caption("Modern Flappy Bird")
         self.clock = pygame.time.Clock()
         self.state = "menu"
@@ -403,8 +436,30 @@ class Game:
         self.screen.blit(rotated_bird, bird_rect)
 
     def main_menu(self):
+        # Start UI music if not already playing
+        if not pygame.mixer.Channel(1).get_busy():
+            pygame.mixer.Channel(1).play(self.ui_music, loops=-1)
+        
+        # Animation variables for floating title
+        title_offset = 0
+        particle_spawn_timer = 0
+        
         while self.state == "menu":
             mouse_pos = pygame.mouse.get_pos()
+            current_time = pygame.time.get_ticks()
+            
+            # Spawn ambient particles for visual flair
+            particle_spawn_timer += 1
+            if particle_spawn_timer > 10:
+                particle_spawn_timer = 0
+                # Random particles floating up
+                x = random.randint(0, SCREEN_WIDTH)
+                y = SCREEN_HEIGHT
+                self.particles.add_particle(
+                    x, y,
+                    (*ACCENT, 80),
+                    (random.uniform(-0.5, 0.5), random.uniform(-3, -1))
+                )
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -412,26 +467,76 @@ class Game:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
+                    # Handle close button
+                    if self.close_button.rect.collidepoint(mouse_pos):
+                        self.ui_click.play()
+                        self.settings.save()
+                        pygame.quit()
+                        sys.exit()
+                    
                     for i, button in enumerate(self.menu_buttons):
                         if button.rect.collidepoint(mouse_pos):
+                            self.ui_click.play()
                             states = ["playing", "settings", "shop", "credits"]
                             self.state = states[i]
-                            # Reset game variables when starting new game
+                            # Stop UI music when starting game
                             if states[i] == "playing":
-                                game_over = False
-                                self.ui_click.play()  # Give feedback that button was pressed
+                                pygame.mixer.Channel(1).stop()
+                            # Add click particles
+                            for _ in range(10):
+                                angle = random.uniform(0, 2*math.pi)
+                                speed = random.uniform(2, 5)
+                                self.particles.add_particle(
+                                    mouse_pos[0], mouse_pos[1],
+                                    (*PRIMARY, 200),
+                                    (speed * math.cos(angle), speed * math.sin(angle))
+                                )
 
             self.draw_background()
             
-            # Draw title
-            title = self.font.render("Modern Flappy Bird", True, WHITE)
-            title_rect = title.get_rect(center=(SCREEN_WIDTH//2, 100))
+            # Update and draw particles
+            self.particles.update()
+            self.particles.draw(self.screen)
+            
+            # Draw floating title with sine wave animation
+            title_offset = math.sin(current_time / 500) * 10
+            title_font = pygame.font.Font(None, 72)
+            title = title_font.render("Modern Flappy Bird", True, WHITE)
+            title_shadow = title_font.render("Modern Flappy Bird", True, (*BLACK, 100))
+            title_rect = title.get_rect(center=(SCREEN_WIDTH//2, 100 + title_offset))
+            shadow_rect = title_rect.copy()
+            shadow_rect.y += 5
+            shadow_rect.x += 5
+            self.screen.blit(title_shadow, shadow_rect)
             self.screen.blit(title, title_rect)
             
-            # Update and draw buttons
+            # Draw subtitle
+            subtitle_font = pygame.font.Font(None, 28)
+            subtitle = subtitle_font.render("Touch/Click anywhere to jump!", True, ACCENT)
+            subtitle_rect = subtitle.get_rect(center=(SCREEN_WIDTH//2, 160))
+            self.screen.blit(subtitle, subtitle_rect)
+            
+            # Update and draw buttons with hover glow effect
             for button in self.menu_buttons:
                 button.update(mouse_pos)
                 button.draw(self.screen)
+                # Add glow effect on hover
+                if button.rect.collidepoint(mouse_pos):
+                    glow_surface = pygame.Surface((button.rect.width + 20, button.rect.height + 20), pygame.SRCALPHA)
+                    glow_color = (*ACCENT, 50)
+                    Utils.draw_rounded_rect(glow_surface, glow_color, 
+                                          (0, 0, button.rect.width + 20, button.rect.height + 20), 15)
+                    self.screen.blit(glow_surface, (button.rect.x - 10, button.rect.y - 10))
+            
+            # Draw close button
+            self.close_button.update(mouse_pos)
+            self.close_button.draw(self.screen)
+            
+            # Draw version info
+            version_font = pygame.font.Font(None, 20)
+            version_text = version_font.render("v1.0.0 - Touch Enabled", True, (*WHITE, 150))
+            version_rect = version_text.get_rect(bottomright=(SCREEN_WIDTH - 10, SCREEN_HEIGHT - 10))
+            self.screen.blit(version_text, version_rect)
             
             pygame.display.flip()
             self.clock.tick(FPS)
@@ -824,18 +929,43 @@ class Game:
                         # Save settings and clean up when exiting
                         self.settings.save()
                         self.particles.particles.clear()
-                    if event.key == pygame.K_SPACE and not game_over:
-                        bird_velocity = jump_strength
+
+                # Centralized jump handler to support keyboard, mouse and touch
+                def do_jump():
+                    nonlocal bird_velocity, bird_y
+                    bird_velocity = jump_strength
+                    try:
                         self.jump_sound.play()
-                        # Add jump particles
-                        for _ in range(5):
-                            angle = np.random.uniform(0, 2*np.pi)
-                            speed = np.random.uniform(1, 3)
-                            self.particles.add_particle(
-                                100, bird_y,
-                                (*PRIMARY, 150),
-                                (speed * np.cos(angle), speed * np.sin(angle))
-                            )
+                    except Exception:
+                        pass
+                    # Add jump particles
+                    for _ in range(5):
+                        angle = random.uniform(0, 2*math.pi)
+                        speed = random.uniform(1, 3)
+                        self.particles.add_particle(
+                            100, bird_y,
+                            (*PRIMARY, 150),
+                            (speed * math.cos(angle), speed * math.sin(angle))
+                        )
+
+                # Keyboard jump
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and not game_over:
+                    do_jump()
+
+                # Mouse click (desktop/web) jump
+                if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
+                    # Accept left click or touch-simulated mouse click
+                    do_jump()
+
+                # Touch event on Android (FINGERDOWN)
+                if event.type == pygame.FINGERDOWN and not game_over:
+                    # Convert normalized touch coords to screen coords if needed
+                    try:
+                        tx = int(event.x * SCREEN_WIDTH)
+                        ty = int(event.y * SCREEN_HEIGHT)
+                    except Exception:
+                        tx, ty = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+                    do_jump()
 
             if not game_over:
                 # Update bird position and angle

@@ -14,9 +14,9 @@ import math
 # Initialize Pygame
 pygame.init()
 
-# Constants
-SCREEN_WIDTH = 1024
-SCREEN_HEIGHT = 768
+# Constants - Optimized for web/mobile browsers
+SCREEN_WIDTH = 1280  # 720p width for better web compatibility
+SCREEN_HEIGHT = 720  # 720p height
 FPS = 60
 
 # Colors
@@ -260,6 +260,11 @@ class Game:
                     if event.key == pygame.K_SPACE and not game_over:
                         bird_velocity = jump_strength
                         self.jump_sound.play()
+                
+                # Touch/Click support for web/mobile
+                if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
+                    bird_velocity = jump_strength
+                    self.jump_sound.play()
 
             if not game_over:
                 bird_velocity += gravity
