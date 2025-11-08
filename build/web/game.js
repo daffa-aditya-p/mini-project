@@ -1,4 +1,4 @@
-"""
+/*
 ============================================
 Modern Flappy Bird - Professional Edition
 Python-Style Web Implementation
@@ -9,7 +9,7 @@ Ported to JavaScript/Canvas with full feature parity
 Developer: Daffa Aditya Pratama
 Designer: Samsul Bahrur
 ============================================
-"""
+*/
 
 // Canvas setup
 const canvas = document.getElementById('gameCanvas');
