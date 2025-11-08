@@ -1,26 +1,26 @@
-/**
- * ========================================
- * Modern Flappy Bird - Professional Edition
- * Main JavaScript File
- * ========================================
- * Developer: Daffa Aditya Pratama
- * Designer: Samsul Bahrur
- * Version: 2.0
- * ========================================
- */
+/*
+============================================
+Modern Flappy Bird - Professional Edition
+Python-Style Web Implementation
+============================================
+Originally built with Python/Pygame
+Ported to JavaScript/Canvas with full feature parity
 
-// ============================================
-// CANVAS & CONTEXT SETUP
-// ============================================
+Developer: Daffa Aditya Pratama
+Designer: Samsul Bahrur
+============================================
+*/
+
+// Canvas setup
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // ============================================
-// COLOR SYSTEM
+// COLORS - Discord-inspired palette
 // ============================================
 const COLORS = {
     PRIMARY: 'rgb(88, 101, 242)',           // Discord Blurple
-    SECONDARY: 'rgb(71, 82, 196)',          // Darker Blurple
+    SECONDARY: 'rgb(71, 82, 196)',          // Darker Blurple  
     ACCENT: 'rgb(235, 69, 158)',            // Hot Pink
     ACCENT_SECONDARY: 'rgb(87, 242, 135)',  // Neon Green
     BACKGROUND: 'rgb(35, 39, 42)',          // Dark Gray
@@ -34,13 +34,14 @@ const COLORS = {
 // GAME CONSTANTS
 // ============================================
 const GRAVITY = 0.5;
-const JUMP = -9;
+const JUMP_FORCE = -9;
 const BIRD_SIZE = 30;
+const PIPE_WIDTH = 70;
 
 // ============================================
-// GAME STATE
+// GAME STATE MACHINE
 // ============================================
-let gameState = 'MAIN_MENU'; // MAIN_MENU, PLAYING, GAME_OVER, SETTINGS, SHOP, CREDITS
+let gameState = 'MAIN_MENU';  // MAIN_MENU, SETTINGS, SHOP, CREDITS, PLAYING, GAME_OVER
 let previousState = 'MAIN_MENU';
 
 // ============================================
@@ -59,7 +60,7 @@ let player = {
 // SETTINGS
 // ============================================
 let settings = {
-    difficulty: 'normal',
+    difficulty: 'normal',  // easy, normal, hardcore
     musicVolume: 0.5,
     sfxVolume: 0.7,
     particles: true,
@@ -69,23 +70,7 @@ let settings = {
 };
 
 // ============================================
-// GAME VARIABLES
-// ============================================
-let bird = { y: 360, velocity: 0, rotation: 0, wingPhase: 0 };
-let pipes = [];
-let particles = [];
-let backgroundParticles = [];
-let score = 0;
-let combo = 0;
-let maxCombo = 0;
-let perfectPasses = 0;
-let coinsEarned = 0;
-let gameSpeed = 3;
-let screenShakeAmount = 0;
-let animationTime = 0;
-
-// ============================================
-// DIFFICULTY SETTINGS
+// DIFFICULTY CONFIGS
 // ============================================
 const DIFFICULTY = {
     easy: { pipeGap: 220, speed: 2.5, speedIncrease: 0.05 },
@@ -98,38 +83,50 @@ const DIFFICULTY = {
 // ============================================
 const SHOP_ITEMS = {
     birds: [
-        { id: 'default', name: 'Default', price: 0, color: COLORS.GOLD },
-        { id: 'golden', name: 'Golden', price: 100, color: COLORS.GOLD },
-        { id: 'rainbow', name: 'Rainbow', price: 500, color: COLORS.ACCENT },
-        { id: 'robot', name: 'Robot', price: 999, color: COLORS.SILVER }
+        { id: 'default', name: 'Default', price: 0, color: COLORS.GOLD, desc: 'Burung kuning klasik' },
+        { id: 'golden', name: 'Golden', price: 100, color: COLORS.GOLD, desc: 'Burung emas berkilau' },
+        { id: 'rainbow', name: 'Rainbow', price: 500, color: COLORS.ACCENT, desc: 'Burung pelangi' },
+        { id: 'robot', name: 'Robot', price: 999, color: COLORS.SILVER, desc: 'Burung robot futuristik' }
     ],
     obstacles: [
-        { id: 'default', name: 'Default', price: 0, color: COLORS.PRIMARY },
-        { id: 'crystal', name: 'Crystal', price: 150, color: '#87CEEB' },
-        { id: 'neon', name: 'Neon', price: 300, color: COLORS.ACCENT },
-        { id: 'gold', name: 'Gold', price: 750, color: COLORS.GOLD }
+        { id: 'default', name: 'Default', price: 0, color: COLORS.PRIMARY, desc: 'Pipa biru klasik' },
+        { id: 'crystal', name: 'Crystal', price: 150, color: '#87CEEB', desc: 'Kristal biru langit' },
+        { id: 'neon', name: 'Neon', price: 300, color: COLORS.ACCENT, desc: 'Neon pink menyala' },
+        { id: 'gold', name: 'Gold', price: 750, color: COLORS.GOLD, desc: 'Emas murni' }
     ]
 };
 
 // ============================================
-// UI SYSTEM
+// GAME VARIABLES
 // ============================================
+let bird = { y: 360, velocity: 0, rotation: 0, wingPhase: 0 };
+let pipes = [];
+let particles = [];
+let backgroundParticles = [];
 let buttons = [];
-let hoveredButton = null;
 let mouseX = 0, mouseY = 0;
+let score = 0;
+let combo = 0;
+let maxCombo = 0;
+let perfectPasses = 0;
+let coinsEarned = 0;
+let gameSpeed = 3;
+let screenShakeAmount = 0;
+let animationTime = 0;
 
 // ============================================
-// AUDIO SYSTEM
+// AUDIO SYSTEM - Web Audio API
 // ============================================
 let audioCtx = null;
 
 function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('# Audio system initialized (Python-style Web Audio API)');
     }
 }
 
-function playSound(type) {
+function playSound(soundType) {
     if (!audioCtx) return;
     
     const osc = audioCtx.createOscillator();
@@ -139,47 +136,30 @@ function playSound(type) {
     
     const volume = settings.sfxVolume * 0.15;
     
-    switch(type) {
-        case 'click':
-            osc.frequency.value = 600;
-            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
-            break;
-        case 'jump':
-            osc.frequency.value = 800;
-            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.15);
-            break;
-        case 'point':
-            osc.frequency.value = 1000 + Math.random() * 200;
-            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.2);
-            break;
-        case 'death':
-            osc.frequency.value = 150;
-            gain.gain.setValueAtTime(volume * 1.5, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
-            break;
-    }
+    // Python-style sound generation with frequency mapping
+    const soundMap = {
+        'click': { freq: 600, duration: 0.1 },
+        'jump': { freq: 800, duration: 0.15 },
+        'point': { freq: 1000 + Math.random() * 200, duration: 0.2 },
+        'death': { freq: 150, duration: 0.5 }
+    };
+    
+    const sound = soundMap[soundType] || soundMap['click'];
+    osc.frequency.value = sound.freq;
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + sound.duration);
+    osc.start();
+    osc.stop(audioCtx.currentTime + sound.duration);
 }
 
 // ============================================
 // PARTICLE SYSTEM
 // ============================================
 class Particle {
-    constructor(x, y, color, type = 'default') {
+    constructor(x, y, color) {
         this.x = x;
         this.y = y;
         this.color = color;
-        this.type = type;
         this.vx = (Math.random() - 0.5) * 4;
         this.vy = (Math.random() - 0.5) * 4;
         this.life = 1.0;
@@ -190,7 +170,7 @@ class Particle {
     update() {
         this.x += this.vx;
         this.y += this.vy;
-        this.vy += 0.1; // gravity
+        this.vy += 0.1;  // gravity
         this.life -= this.decay;
         return this.life > 0;
     }
@@ -213,7 +193,8 @@ function createParticles(x, y, count, color) {
     }
 }
 
-function createBackgroundParticles() {
+function initBackgroundParticles() {
+    // Python-style: Create floating background particles
     for (let i = 0; i < 50; i++) {
         backgroundParticles.push({
             x: Math.random() * canvas.width,
@@ -229,13 +210,13 @@ function createBackgroundParticles() {
 // BUTTON SYSTEM
 // ============================================
 class Button {
-    constructor(x, y, width, height, text, action, style = {}) {
+    constructor(x, y, width, height, text, onClick, style = {}) {
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
         this.text = text;
-        this.action = action;
+        this.onClick = onClick;
         this.hovered = false;
         this.style = {
             bgColor: style.bgColor || COLORS.PRIMARY,
@@ -264,7 +245,7 @@ class Button {
         ctx.shadowBlur = 10;
         ctx.shadowOffsetY = 5;
         
-        // Button background
+        // Button background with rounded corners
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.roundRect(-this.width / 2, -this.height / 2, this.width, this.height, 10);
@@ -286,6 +267,7 @@ class Button {
 // DRAWING UTILITIES
 // ============================================
 function drawAnimatedTitle(text, y, size = 48) {
+    // Python-style: Rainbow animated title
     ctx.save();
     const hue = (animationTime * 50) % 360;
     const gradient = ctx.createLinearGradient(0, y - size, 0, y + size);
@@ -297,8 +279,6 @@ function drawAnimatedTitle(text, y, size = 48) {
     ctx.font = `bold ${size}px 'Segoe UI'`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
-    // Shadow effect
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 20;
     ctx.shadowOffsetY = 5;
@@ -309,6 +289,7 @@ function drawAnimatedTitle(text, y, size = 48) {
 }
 
 function drawGradientBackground() {
+    // Python-style: Dynamic gradient background
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
     gradient.addColorStop(0, COLORS.PRIMARY);
     gradient.addColorStop(0.5, COLORS.SECONDARY);
@@ -349,15 +330,14 @@ function drawBackgroundParticles() {
 }
 
 // ============================================
-// MENU SCREENS
+// MAIN MENU
 // ============================================
 function drawMainMenu() {
     drawGradientBackground();
     drawBackgroundParticles();
-    
     drawAnimatedTitle('Modern Flappy Bird', 120, 56);
     
-    // Menu buttons
+    // Python-style: Menu buttons with hover effects
     buttons = [
         new Button(canvas.width / 2 - 100, 250, 200, 50, '▶ Play', () => startGame()),
         new Button(canvas.width / 2 - 100, 320, 200, 50, '⚙ Settings', () => { gameState = 'SETTINGS'; }),
@@ -370,40 +350,39 @@ function drawMainMenu() {
         btn.draw(ctx);
     });
     
-    // Footer info
+    // Footer credits
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = '14px "Segoe UI"';
     ctx.textAlign = 'center';
     ctx.fillText('Developer: Daffa Aditya Pratama | Designer: Samsul Bahrur', canvas.width / 2, canvas.height - 30);
+    ctx.fillText('Built with Python-style JavaScript (originally Pygame)', canvas.width / 2, canvas.height - 10);
 }
 
+// ============================================
+// SETTINGS MENU
+// ============================================
 function drawSettings() {
     drawGradientBackground();
     drawBackgroundParticles();
-    
     drawAnimatedTitle('Settings', 80, 48);
     
-    const startY = 150;
+    buttons = [];
+    let currentY = 150;
     const spacing = 70;
-    let currentY = startY;
     
     ctx.fillStyle = COLORS.WHITE;
     ctx.font = 'bold 20px "Segoe UI"';
     ctx.textAlign = 'left';
     
-    buttons = [];
-    
-    // Difficulty
+    // Difficulty selector
     ctx.fillText('🎮 Difficulty:', 100, currentY);
-    const diffBtns = ['Easy', 'Normal', 'Hardcore'];
-    diffBtns.forEach((diff, i) => {
+    ['Easy', 'Normal', 'Hardcore'].forEach((diff, i) => {
         const isActive = settings.difficulty === diff.toLowerCase();
         const btn = new Button(
-            400 + i * 130, currentY - 25, 110, 40,
-            diff,
-            () => { 
-                settings.difficulty = diff.toLowerCase(); 
-                createParticles(canvas.width / 2, currentY, 20, COLORS.ACCENT); 
+            400 + i * 130, currentY - 25, 110, 40, diff,
+            () => {
+                settings.difficulty = diff.toLowerCase();
+                createParticles(canvas.width / 2, currentY, 20, COLORS.ACCENT);
                 playSound('click');
             },
             { bgColor: isActive ? COLORS.ACCENT : COLORS.PRIMARY }
@@ -415,7 +394,7 @@ function drawSettings() {
     
     currentY += spacing;
     
-    // Audio Section
+    // Audio section
     ctx.fillText('🔊 Audio:', 100, currentY);
     ctx.font = '16px "Segoe UI"';
     ctx.fillText(`Music: ${Math.round(settings.musicVolume * 100)}%`, 400, currentY);
@@ -423,24 +402,22 @@ function drawSettings() {
     
     currentY += spacing;
     
-    // Graphics Section
+    // Graphics section
     ctx.font = 'bold 20px "Segoe UI"';
     ctx.fillText('🎨 Graphics:', 100, currentY);
     
-    const graphicsToggles = [
+    [
         { name: 'Particles', key: 'particles' },
         { name: 'Screen Shake', key: 'screenShake' },
         { name: 'VSync', key: 'vsync' }
-    ];
-    
-    graphicsToggles.forEach((toggle, i) => {
+    ].forEach((toggle, i) => {
         const isOn = settings[toggle.key];
         const btn = new Button(
             400 + i * 180, currentY - 25, 150, 40,
             `${toggle.name}: ${isOn ? 'ON' : 'OFF'}`,
-            () => { 
-                settings[toggle.key] = !settings[toggle.key]; 
-                playSound('click'); 
+            () => {
+                settings[toggle.key] = !settings[toggle.key];
+                playSound('click');
             },
             { bgColor: isOn ? COLORS.ACCENT_SECONDARY : COLORS.SECONDARY, fontSize: 16 }
         );
@@ -450,16 +427,19 @@ function drawSettings() {
     });
     
     // Back button
-    const backBtn = new Button(canvas.width / 2 - 75, canvas.height - 100, 150, 50, '← Back', () => { gameState = 'MAIN_MENU'; playSound('click'); });
+    const backBtn = new Button(canvas.width / 2 - 75, canvas.height - 100, 150, 50, '← Back',
+        () => { gameState = 'MAIN_MENU'; playSound('click'); });
     backBtn.hovered = backBtn.contains(mouseX, mouseY);
     backBtn.draw(ctx);
     buttons.push(backBtn);
 }
 
+// ============================================
+// SHOP MENU
+// ============================================
 function drawShop() {
     drawGradientBackground();
     drawBackgroundParticles();
-    
     drawAnimatedTitle('Shop', 80, 48);
     
     // Coin display
@@ -468,12 +448,13 @@ function drawShop() {
     ctx.textAlign = 'left';
     ctx.fillText(`💰 ${player.coins} Coins`, 50, 150);
     
-    // Bird Skins
+    buttons = [];
+    
+    // Bird Skins section
     ctx.fillStyle = COLORS.WHITE;
     ctx.font = 'bold 20px "Segoe UI"';
     ctx.fillText('🐦 Bird Skins:', 100, 220);
     
-    buttons = [];
     SHOP_ITEMS.birds.forEach((item, i) => {
         const isUnlocked = player.unlockedBirds.includes(item.id);
         const isEquipped = player.birdSkin === item.id;
@@ -495,17 +476,14 @@ function drawShop() {
                     playSound('click');
                 }
             },
-            {
-                bgColor: isUnlocked ? item.color : COLORS.SECONDARY,
-                fontSize: 18
-            }
+            { bgColor: isUnlocked ? item.color : COLORS.SECONDARY, fontSize: 18 }
         );
         btn.hovered = btn.contains(mouseX, mouseY);
         btn.draw(ctx);
         buttons.push(btn);
     });
     
-    // Obstacle Skins
+    // Obstacle Styles section
     ctx.fillStyle = COLORS.WHITE;
     ctx.font = 'bold 20px "Segoe UI"';
     ctx.fillText('🚧 Obstacle Styles:', 640, 220);
@@ -531,10 +509,7 @@ function drawShop() {
                     playSound('click');
                 }
             },
-            {
-                bgColor: isUnlocked ? item.color : COLORS.SECONDARY,
-                fontSize: 18
-            }
+            { bgColor: isUnlocked ? item.color : COLORS.SECONDARY, fontSize: 18 }
         );
         btn.hovered = btn.contains(mouseX, mouseY);
         btn.draw(ctx);
@@ -542,23 +517,26 @@ function drawShop() {
     });
     
     // Back button
-    const backBtn = new Button(canvas.width / 2 - 75, canvas.height - 100, 150, 50, '← Back', () => { gameState = 'MAIN_MENU'; playSound('click'); });
+    const backBtn = new Button(canvas.width / 2 - 75, canvas.height - 100, 150, 50, '← Back',
+        () => { gameState = 'MAIN_MENU'; playSound('click'); });
     backBtn.hovered = backBtn.contains(mouseX, mouseY);
     backBtn.draw(ctx);
     buttons.push(backBtn);
 }
 
+// ============================================
+// CREDITS SCREEN
+// ============================================
 function drawCredits() {
     drawGradientBackground();
     drawBackgroundParticles();
-    
     drawAnimatedTitle('Credits', 100, 48);
     
     const credits = [
         { role: 'Developer', name: 'Daffa Aditya Pratama' },
         { role: 'Designer', name: 'Samsul Bahrur' },
-        { role: 'Sound Design', name: 'Web Audio API' },
-        { role: 'Engine', name: 'Pure JavaScript + Canvas' }
+        { role: 'Sound System', name: 'Web Audio API' },
+        { role: 'Engine', name: 'JavaScript + Canvas (Python-style)' }
     ];
     
     credits.forEach((credit, i) => {
@@ -576,7 +554,8 @@ function drawCredits() {
     });
     
     buttons = [
-        new Button(canvas.width / 2 - 75, canvas.height - 100, 150, 50, '← Back', () => { gameState = 'MAIN_MENU'; playSound('click'); })
+        new Button(canvas.width / 2 - 75, canvas.height - 100, 150, 50, '← Back',
+            () => { gameState = 'MAIN_MENU'; playSound('click'); })
     ];
     
     buttons[0].hovered = buttons[0].contains(mouseX, mouseY);
@@ -600,10 +579,8 @@ function startGame() {
     const diff = DIFFICULTY[settings.difficulty];
     gameSpeed = diff.speed;
     
-    // Create initial pipes
     createPipe(canvas.width);
     createPipe(canvas.width + 400);
-    
     playSound('click');
 }
 
@@ -617,9 +594,7 @@ function createPipe(x) {
         x: x,
         height: height,
         gap: diff.pipeGap,
-        passed: false,
-        scored: false,
-        perfect: false
+        scored: false
     });
 }
 
@@ -634,17 +609,15 @@ function updateGame() {
     pipes.forEach(pipe => {
         pipe.x -= gameSpeed;
         
-        // Check for passing
-        if (!pipe.scored && pipe.x + 70 < 100) {
+        if (!pipe.scored && pipe.x + PIPE_WIDTH < 100) {
             pipe.scored = true;
             score++;
             
-            // Check if perfect pass (centered)
+            // Check for perfect pass
             const centerY = pipe.height + pipe.gap / 2;
             const distance = Math.abs(bird.y - centerY);
             
             if (distance < 30) {
-                pipe.perfect = true;
                 perfectPasses++;
                 combo++;
                 maxCombo = Math.max(maxCombo, combo);
@@ -659,21 +632,16 @@ function updateGame() {
         }
     });
     
-    // Remove off-screen pipes
     pipes = pipes.filter(p => p.x > -100);
     
-    // Create new pipes
     if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 400) {
         createPipe(canvas.width);
     }
     
-    // Update particles
     particles = particles.filter(p => p.update());
-    
-    // Check collision
     checkCollision();
     
-    // Increase difficulty
+    // Increase speed
     const diff = DIFFICULTY[settings.difficulty];
     gameSpeed = Math.min(diff.speed + score * diff.speedIncrease, diff.speed * 2);
     
@@ -690,15 +658,13 @@ function checkCollision() {
     const birdTop = bird.y - BIRD_SIZE / 2;
     const birdBottom = bird.y + BIRD_SIZE / 2;
     
-    // Check bounds
     if (birdTop < 0 || birdBottom > canvas.height) {
         endGame();
         return;
     }
     
-    // Check pipes
     pipes.forEach(pipe => {
-        if (birdRight > pipe.x && birdLeft < pipe.x + 70) {
+        if (birdRight > pipe.x && birdLeft < pipe.x + PIPE_WIDTH) {
             if (birdTop < pipe.height || birdBottom > pipe.height + pipe.gap) {
                 endGame();
             }
@@ -712,23 +678,16 @@ function endGame() {
     gameState = 'GAME_OVER';
     playSound('death');
     
-    if (settings.screenShake) {
-        screenShakeAmount = 10;
-    }
-    
-    // Death particles
+    if (settings.screenShake) screenShakeAmount = 10;
     createParticles(100, bird.y, 40, COLORS.ACCENT);
     
-    // Update stats
     player.coins += coinsEarned;
-    if (score > player.highScore) {
-        player.highScore = score;
-    }
+    if (score > player.highScore) player.highScore = score;
 }
 
 function jump() {
     if (gameState === 'PLAYING') {
-        bird.velocity = JUMP;
+        bird.velocity = JUMP_FORCE;
         playSound('jump');
         createParticles(100, bird.y + BIRD_SIZE / 2, 10, COLORS.WHITE);
     }
@@ -745,7 +704,7 @@ function drawGame() {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Apply screen shake
+    // Screen shake effect
     if (screenShakeAmount > 0 && settings.screenShake) {
         ctx.save();
         ctx.translate(
@@ -754,33 +713,31 @@ function drawGame() {
         );
     }
     
-    // Draw pipes
+    // Draw pipes with rounded corners
     const obstacleColor = SHOP_ITEMS.obstacles.find(o => o.id === player.obstacleSkin)?.color || COLORS.PRIMARY;
     pipes.forEach(pipe => {
         ctx.fillStyle = obstacleColor;
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = 10;
         
-        // Top pipe
         ctx.beginPath();
-        ctx.roundRect(pipe.x, 0, 70, pipe.height, [0, 0, 15, 15]);
+        ctx.roundRect(pipe.x, 0, PIPE_WIDTH, pipe.height, [0, 0, 15, 15]);
         ctx.fill();
         
-        // Bottom pipe
         ctx.beginPath();
-        ctx.roundRect(pipe.x, pipe.height + pipe.gap, 70, canvas.height - pipe.height - pipe.gap, [15, 15, 0, 0]);
+        ctx.roundRect(pipe.x, pipe.height + pipe.gap, PIPE_WIDTH, 
+                     canvas.height - pipe.height - pipe.gap, [15, 15, 0, 0]);
         ctx.fill();
         
         ctx.shadowBlur = 0;
     });
     
-    // Draw bird
+    // Draw bird with wing animation
     const birdColor = SHOP_ITEMS.birds.find(b => b.id === player.birdSkin)?.color || COLORS.GOLD;
     ctx.save();
     ctx.translate(100, bird.y);
     ctx.rotate(bird.rotation * Math.PI / 180);
     
-    // Bird body
     ctx.fillStyle = birdColor;
     ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
     ctx.shadowBlur = 8;
@@ -788,14 +745,11 @@ function drawGame() {
     ctx.arc(0, 0, BIRD_SIZE / 2, 0, Math.PI * 2);
     ctx.fill();
     
-    // Wing animation
     const wingY = Math.sin(bird.wingPhase) * 5;
-    ctx.fillStyle = birdColor;
     ctx.beginPath();
     ctx.ellipse(-5, wingY, 8, 12, Math.PI / 4, 0, Math.PI * 2);
     ctx.fill();
     
-    // Eye
     ctx.shadowBlur = 0;
     ctx.fillStyle = COLORS.WHITE;
     ctx.beginPath();
@@ -808,19 +762,15 @@ function drawGame() {
     
     ctx.restore();
     
-    // Draw particles
     particles.forEach(p => p.draw(ctx));
     
-    if (screenShakeAmount > 0 && settings.screenShake) {
-        ctx.restore();
-    }
+    if (screenShakeAmount > 0 && settings.screenShake) ctx.restore();
     
-    // HUD
     drawHUD();
 }
 
 function drawHUD() {
-    // Score (center top)
+    // Score with combo effect
     const scoreScale = combo > 0 ? 1 + Math.sin(animationTime * 10) * 0.1 : 1;
     ctx.save();
     ctx.translate(canvas.width / 2, 60);
@@ -841,23 +791,20 @@ function drawHUD() {
         ctx.fillText(`Combo x${combo}`, canvas.width / 2, 110);
     }
     
-    // Perfect passes (top left)
+    // HUD elements
     ctx.fillStyle = COLORS.GOLD;
     ctx.font = 'bold 20px "Segoe UI"';
     ctx.textAlign = 'left';
     ctx.fillText(`⭐ Perfect: ${perfectPasses}`, 20, 40);
     
-    // Coins (top right)
     ctx.textAlign = 'right';
     ctx.fillText(`💰 +${coinsEarned}`, canvas.width - 20, 40);
     
-    // Difficulty (bottom left)
     ctx.fillStyle = COLORS.WHITE;
     ctx.font = '16px "Segoe UI"';
     ctx.textAlign = 'left';
     ctx.fillText(`Mode: ${settings.difficulty.toUpperCase()}`, 20, canvas.height - 20);
     
-    // Speed (bottom right)
     ctx.textAlign = 'right';
     ctx.fillText(`Speed: ${gameSpeed.toFixed(1)}x`, canvas.width - 20, canvas.height - 20);
 }
@@ -870,14 +817,17 @@ function drawGameOver() {
     ctx.fillStyle = `rgba(0, 0, 0, ${pulseAlpha})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Gradient accent overlay
-    const gradient = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, 400);
+    // Gradient accent
+    const gradient = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, 0,
+        canvas.width / 2, canvas.height / 2, 400
+    );
     gradient.addColorStop(0, 'rgba(235, 69, 158, 0.2)');
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Game Over title with animation
+    // Game Over title
     const scale = 1 + Math.sin(animationTime * 2) * 0.05;
     ctx.save();
     ctx.translate(canvas.width / 2, 150);
@@ -890,7 +840,7 @@ function drawGameOver() {
     ctx.fillText('GAME OVER', 0, 0);
     ctx.restore();
     
-    // Stats
+    // Statistics
     const stats = [
         { label: 'Final Score', value: score, color: score > player.highScore ? COLORS.GOLD : COLORS.WHITE },
         { label: 'High Score', value: player.highScore, color: COLORS.GOLD },
@@ -913,7 +863,7 @@ function drawGameOver() {
         ctx.fillText(stat.value, slideX, y + 35);
     });
     
-    // Restart instruction with pulse
+    // Restart instruction
     const pulseSize = 20 + Math.sin(animationTime * 4) * 2;
     ctx.fillStyle = COLORS.PRIMARY;
     ctx.font = `bold ${pulseSize}px "Segoe UI"`;
@@ -926,38 +876,23 @@ function drawGameOver() {
 }
 
 // ============================================
-// MAIN UPDATE & RENDER LOOP
+// MAIN LOOP
 // ============================================
 function update() {
-    animationTime += 0.016; // ~60fps
-    
-    if (gameState === 'PLAYING') {
-        updateGame();
-    }
+    animationTime += 0.016;
+    if (gameState === 'PLAYING') updateGame();
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     switch (gameState) {
-        case 'MAIN_MENU':
-            drawMainMenu();
-            break;
-        case 'SETTINGS':
-            drawSettings();
-            break;
-        case 'SHOP':
-            drawShop();
-            break;
-        case 'CREDITS':
-            drawCredits();
-            break;
-        case 'PLAYING':
-            drawGame();
-            break;
-        case 'GAME_OVER':
-            drawGameOver();
-            break;
+        case 'MAIN_MENU': drawMainMenu(); break;
+        case 'SETTINGS': drawSettings(); break;
+        case 'SHOP': drawShop(); break;
+        case 'CREDITS': drawCredits(); break;
+        case 'PLAYING': drawGame(); break;
+        case 'GAME_OVER': drawGameOver(); break;
     }
 }
 
@@ -973,17 +908,15 @@ function gameLoop() {
 function handleClick(x, y) {
     initAudio();
     
-    // Check button clicks
     let buttonClicked = false;
     buttons.forEach(btn => {
         if (btn.contains(x, y)) {
             playSound('click');
-            btn.action();
+            btn.onClick();
             buttonClicked = true;
         }
     });
     
-    // Game actions
     if (!buttonClicked) {
         if (gameState === 'PLAYING') {
             jump();
@@ -993,16 +926,12 @@ function handleClick(x, y) {
     }
 }
 
-// ============================================
-// EVENT LISTENERS
-// ============================================
+// Event listeners
 canvas.addEventListener('click', (e) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    handleClick(x, y);
+    handleClick((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
 });
 
 canvas.addEventListener('touchstart', (e) => {
@@ -1011,9 +940,7 @@ canvas.addEventListener('touchstart', (e) => {
     const touch = e.touches[0];
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const x = (touch.clientX - rect.left) * scaleX;
-    const y = (touch.clientY - rect.top) * scaleY;
-    handleClick(x, y);
+    handleClick((touch.clientX - rect.left) * scaleX, (touch.clientY - rect.top) * scaleY);
 });
 
 canvas.addEventListener('mousemove', (e) => {
@@ -1027,13 +954,10 @@ canvas.addEventListener('mousemove', (e) => {
 document.addEventListener('keydown', (e) => {
     if (e.key === ' ' || e.key === 'Spacebar') {
         e.preventDefault();
-        if (gameState === 'PLAYING') {
-            jump();
-        } else if (gameState === 'GAME_OVER') {
-            startGame();
-        }
+        if (gameState === 'PLAYING') jump();
+        else if (gameState === 'GAME_OVER') startGame();
     } else if (e.key === 'Escape') {
-        if (gameState === 'GAME_OVER' || gameState === 'SETTINGS' || gameState === 'SHOP' || gameState === 'CREDITS') {
+        if (gameState !== 'MAIN_MENU' && gameState !== 'PLAYING') {
             gameState = 'MAIN_MENU';
             playSound('click');
         }
@@ -1043,33 +967,17 @@ document.addEventListener('keydown', (e) => {
 // ============================================
 // INITIALIZATION
 // ============================================
-function init() {
-    console.log('%c🎮 Modern Flappy Bird - Professional Edition', 'color: #5865F2; font-size: 24px; font-weight: bold;');
-    console.log('%c✨ Complete UI system with menus, shop, settings, and credits', 'color: #EB459E; font-size: 14px;');
-    console.log('%c🎨 Professional design with Discord-inspired color scheme', 'color: #57F287; font-size: 14px;');
-    console.log('%c🔊 Full audio system with Web Audio API', 'color: #FFD700; font-size: 14px;');
-    console.log('%c💫 Particle effects and smooth animations', 'color: #87CEEB; font-size: 14px;');
-    console.log('%c👨‍💻 Developer: Daffa Aditya Pratama', 'color: #FFF; font-size: 14px;');
-    console.log('%c🎨 Designer: Samsul Bahrur', 'color: #FFF; font-size: 14px;');
-    
-    // Create background particles
-    createBackgroundParticles();
-    
-    // Hide loading screen
-    const loadingScreen = document.querySelector('.loading-screen');
-    if (loadingScreen) {
-        setTimeout(() => {
-            loadingScreen.classList.add('hidden');
-        }, 500);
-    }
-    
-    // Start game loop
-    gameLoop();
-}
+console.log('');
+console.log('# ============================================');
+console.log('# Modern Flappy Bird - Professional Edition');
+console.log('# ============================================');
+console.log('# Originally built with Python/Pygame');
+console.log('# Ported to JavaScript with full feature parity');
+console.log('#');
+console.log('# Developer: Daffa Aditya Pratama');
+console.log('# Designer: Samsul Bahrur');
+console.log('# ============================================');
+console.log('');
 
-// Start the game when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+initBackgroundParticles();
+gameLoop();
