@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Modern Flappy Bird - Pure JavaScript</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a2e; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; font-family: Arial, sans-serif; color: white; }
+        #gameCanvas { border: 3px solid #667eea; box-shadow: 0 0 20px #667eea; max-width: 95vw; max-height: 85vh; cursor: pointer; }
+        .info { margin: 10px; text-align: center; font-size: 12px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <h1 style="margin: 10px; font-size: 24px;">🎮 Modern Flappy Bird</h1>
+    <p class="info">Ported from Python/Pygame to JavaScript/Canvas | Touch/Click to Play</p>
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+    <p class="info">Developer: Daffa Aditya Pratama | Designer: Samsul Bahrur</p>
+    
+    <script>
+        console.log("🎮 Game Info: This looks like Python Pygame, but it's actually pure JavaScript!");
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game constants
+        const GRAVITY = 0.5;
+        const JUMP = -8;
+        const PIPE_SPEED = 3;
+        const PIPE_GAP = 200;
+        const PIPE_WIDTH = 70;
+        
+        // Game state
+        let birdY = canvas.height / 2;
+        let birdVel = 0;
+        let pipes = [];
+        let score = 0;
+        let gameOver = false;
+        let started = false;
+        
+        // Colors matching main.py
+        const PRIMARY = '#5865F2';
+        const GOLD = '#FFD700';
+        const WHITE = '#FFFFFF';
+        
+        // Audio context
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        function playSound(freq, duration) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+        
+        // Create pipe
+        function createPipe() {
+            const height = 100 + Math.random() * (canvas.height - PIPE_GAP - 200);
+            return { x: canvas.width, height, passed: false };
+        }
+        
+        // Check collision
+        function checkCollision() {
+            const birdX = 100;
+            const birdSize = 25;
+            
+            pipes.forEach(pipe => {
+                if (birdX + birdSize > pipe.x && birdX < pipe.x + PIPE_WIDTH) {
+                    if (birdY < pipe.height || birdY + birdSize > pipe.height + PIPE_GAP) {
+                        gameOver = true;
+                        playSound(200, 0.3);
+                    }
+                }
+                
+                if (!pipe.passed && pipe.x + PIPE_WIDTH < birdX) {
+                    pipe.passed = true;
+                    score++;
+                    playSound(600, 0.1);
+                }
+            });
+            
+            if (birdY < 0 || birdY > canvas.height) {
+                gameOver = true;
+            }
+        }
+        
+        // Draw functions
+        function drawBird() {
+            ctx.fillStyle = GOLD;
+            ctx.beginPath();
+            ctx.arc(100, birdY, 15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eye
+            ctx.fillStyle = WHITE;
+            ctx.beginPath();
+            ctx.arc(108, birdY - 3, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(110, birdY - 3, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function drawPipe(pipe) {
+            ctx.fillStyle = PRIMARY;
+            ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.height);
+            ctx.fillRect(pipe.x, pipe.height + PIPE_GAP, PIPE_WIDTH, canvas.height);
+        }
+        
+        function drawUI() {
+            ctx.fillStyle = WHITE;
+            ctx.font = '32px Arial';
+            ctx.textAlign = 'center';
+            
+            if (!started) {
+                ctx.fillText('TAP/CLICK TO START', canvas.width / 2, canvas.height / 2);
+                ctx.font = '16px Arial';
+                ctx.fillText('(Ported from Python Pygame)', canvas.width / 2, canvas.height / 2 + 40);
+            } else {
+                ctx.textAlign = 'left';
+                ctx.fillText('Score: ' + score, 20, 50);
+            }
+            
+            if (gameOver) {
+                ctx.globalAlpha = 0.8;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = 1;
+                
+                ctx.fillStyle = WHITE;
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.font = '24px Arial';
+                ctx.fillText('Score: ' + score, canvas.width / 2, canvas.height / 2 + 20);
+                ctx.font = '18px Arial';
+                ctx.fillStyle = '#667eea';
+                ctx.fillText('Tap/Click to Restart', canvas.width / 2, canvas.height / 2 + 60);
+            }
+        }
+        
+        // Game loop
+        function update() {
+            if (!gameOver && started) {
+                birdVel += GRAVITY;
+                birdY += birdVel;
+                
+                pipes.forEach(pipe => pipe.x -= PIPE_SPEED);
+                pipes = pipes.filter(p => p.x > -PIPE_WIDTH);
+                
+                if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 250) {
+                    pipes.push(createPipe());
+                }
+                
+                checkCollision();
+            }
+        }
+        
+        function draw() {
+            // Sky gradient (like main.py)
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#5865F2');
+            gradient.addColorStop(1, '#4752C4');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            pipes.forEach(drawPipe);
+            drawBird();
+            drawUI();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Input handling
+        function handleInput() {
+            initAudio();
+            
+            if (!started) {
+                started = true;
+                pipes.push(createPipe());
+            } else if (gameOver) {
+                // Reset
+                birdY = canvas.height / 2;
+                birdVel = 0;
+                pipes = [];
+                score = 0;
+                gameOver = false;
+                started = true;
+                pipes.push(createPipe());
+            } else {
+                birdVel = JUMP;
+                playSound(800, 0.1);
+            }
+        }
+        
+        canvas.addEventListener('click', handleInput);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleInput();
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'Spacebar') {
+                e.preventDefault();
+                handleInput();
+            }
+        });
+        
+        // Start
+        console.log('✅ JavaScript port loaded! All game logic ported from Python main.py');
+        gameLoop();
+    </script>
+</body>
+</html>
