@@ -437,8 +437,9 @@ class Game:
 
     def main_menu(self):
         # Start UI music if not already playing
-        if not pygame.mixer.Channel(1).get_busy():
-            pygame.mixer.Channel(1).play(self.ui_music, loops=-1)
+        if hasattr(self, 'ui_music') and self.ui_music is not None:
+            if not pygame.mixer.Channel(1).get_busy():
+                pygame.mixer.Channel(1).play(self.ui_music, loops=-1)
         
         # Animation variables for floating title
         title_offset = 0
@@ -469,14 +470,16 @@ class Game:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     # Handle close button
                     if self.close_button.rect.collidepoint(mouse_pos):
-                        self.ui_click.play()
+                        if hasattr(self, 'ui_click') and self.ui_click:
+                            self.ui_click.play()
                         self.settings.save()
                         pygame.quit()
                         sys.exit()
                     
                     for i, button in enumerate(self.menu_buttons):
                         if button.rect.collidepoint(mouse_pos):
-                            self.ui_click.play()
+                            if hasattr(self, 'ui_click') and self.ui_click:
+                                self.ui_click.play()
                             states = ["playing", "settings", "shop", "credits"]
                             self.state = states[i]
                             # Stop UI music when starting game
@@ -825,7 +828,8 @@ class Game:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if hasattr(self, 'close_button') and self.close_button.rect.collidepoint(pygame.mouse.get_pos()):
                         self.state = 'menu'
-                        self.ui_click.play()
+                        if hasattr(self, 'ui_click') and self.ui_click:
+                            self.ui_click.play()
 
             self.draw_background()
             
