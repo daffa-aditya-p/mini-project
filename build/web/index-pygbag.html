@@ -1,107 +1,55 @@
-<!DOCTYPE html><html lang="en-us"><script src="https://pygame-web.github.io/archives/0.9/pythons.js" type=module id=site data-LINES=57 data-CONSOLE=25 data-python=python3.12 data-os=vtx,fs,snd,gui async defer>#<!--
+<html lang="en-us"><script src="https://pygame-web.github.io/archives/0.9/pythons.js" type=module id=site data-LINES=57 data-CONSOLE=25 data-python=python3.12 data-os=vtx,fs,snd,gui async defer>#<!--
 
-<html lang="id">
+print("""
+Loading mini-project from mini-project.apk
+    Pygbag Version : 0.9.2
+    Template Version : 0.9.0
+    Python  : 3.12
+    CDN URL : https://pygame-web.github.io/archives/0.9/
+    Screen  : 1280x720
+    Title   : mini-project
+    Folder  : mini-project
+    Authors : pgw
+    SPDX-License-Identifier: cookiecutter.spdx
 
-<head>print("""
+""")
 
-    <meta charset="UTF-8">Loading mini-project from mini-project.apk
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">    Pygbag Version : 0.9.2
+# screen pixels (real, hardware)
+WIDTH=1024  # 1280
+HEIGHT=600  # 720
 
-    <meta name="description" content="Modern Flappy Bird - Professional Edition with complete UI system, shop, and settings">    Template Version : 0.9.0
+# reference/idealized screen pixels
+REFX = 1980
+REFY = 1080
 
-    <meta name="keywords" content="flappy bird, game, javascript, canvas, web game">    Python  : 3.12
+def u(real, ref, v):
+    if abs(v)<0.9999999:
+        result = int( (float(real)/100.0) * (v*1000))
+        if v<0:
+            return real-result
+        return result
+    return int( (real/ref) * v )
 
-    <meta name="author" content="Daffa Aditya Pratama, Samsul Bahrur">    CDN URL : https://pygame-web.github.io/archives/0.9/
+def ux(*argv):
+    global WIDTH, REFX
+    acc = 0
+    for v in argv:
+        acc += u(WIDTH, REFX, v)
+    return acc
 
-    <meta name="theme-color" content="#5865F2">    Screen  : 1280x720
+def uy(*argv):
+    global HEIGHT, REFY
+    acc = 0
+    for v in argv:
+        acc += u(HEIGHT, REFY, v)
+    return acc
 
-        Title   : mini-project
 
-    <!-- Open Graph / Facebook -->    Folder  : mini-project
 
-    <meta property="og:type" content="website">    Authors : pgw
 
-    <meta property="og:title" content="Modern Flappy Bird - Professional Edition">    SPDX-License-Identifier: cookiecutter.spdx
-
-    <meta property="og:description" content="Play the modern version of Flappy Bird with amazing UI and features">
-
-    <meta property="og:image" content="favicon.png">""")
-
-    
-
-    <!-- Twitter -->
-
-    <meta name="twitter:card" content="summary_large_image"># screen pixels (real, hardware)
-
-    <meta name="twitter:title" content="Modern Flappy Bird - Professional Edition">WIDTH=1024  # 1280
-
-    <meta name="twitter:description" content="Play the modern version of Flappy Bird with amazing UI and features">HEIGHT=600  # 720
-
-    
-
-    <title>Modern Flappy Bird - Professional Edition</title># reference/idealized screen pixels
-
-    REFX = 1980
-
-    <!-- Favicon -->REFY = 1080
-
-    <link rel="icon" type="image/png" href="favicon.png">
-
-    <link rel="apple-touch-icon" href="favicon.png">def u(real, ref, v):
-
-        if abs(v)<0.9999999:
-
-    <!-- Stylesheet -->        result = int( (float(real)/100.0) * (v*1000))
-
-    <link rel="stylesheet" href="style.css">        if v<0:
-
-                return real-result
-
-    <!-- Preload critical resources -->        return result
-
-    <link rel="preload" href="main.js" as="script">    return int( (real/ref) * v )
-
-</head>
-
-<body>def ux(*argv):
-
-    <!-- Loading Screen -->    global WIDTH, REFX
-
-    <div class="loading-screen">    acc = 0
-
-        <div class="loading-spinner"></div>    for v in argv:
-
-        <div class="loading-text">Loading Modern Flappy Bird...</div>        acc += u(WIDTH, REFX, v)
-
-    </div>    return acc
-
-    
-
-    <!-- Game Canvas -->def uy(*argv):
-
-    <canvas id="gameCanvas" width="1280" height="720" role="application" aria-label="Modern Flappy Bird Game"></canvas>    global HEIGHT, REFY
-
-        acc = 0
-
-    <!-- Main JavaScript -->    for v in argv:
-
-    <script src="main.js"></script>        acc += u(HEIGHT, REFY, v)
-
-        return acc
-
-    <!-- Analytics (optional - uncomment if needed) -->
-
-    <!-- <script>
-
-        // Add your analytics code here
-
-    </script> -->
-
-</body># do not rename
-
-</html>async def custom_site():
-
+# do not rename
+async def custom_site():
 
     import sys
     import asyncio
